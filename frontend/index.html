@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>dspMixFx UR44</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">dsp<span>Mix</span>Fx <em>UR44</em></div>
+    <div id="connection">
+      <span id="connection-status" class="status disconnected">desconectado</span>
+      <select id="port-select"></select>
+      <button id="connect-btn" class="pill-btn">Conectar</button>
+    </div>
+  </header>
+
+  <section id="global-controls">
+    <div class="control-group">
+      <label>Mix</label>
+      <div class="mix-select">
+        <button class="mix-btn" data-mix="0">MIX 1</button>
+        <button class="mix-btn" data-mix="1">MIX 2</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Phones 2 src</label>
+      <button class="led-btn" id="phones2-btn" data-param="Phones2Output">MIX 1</button>
+    </div>
+
+    <div class="control-group">
+      <label>+48V</label>
+      <div class="btn-row">
+        <button class="led-btn phantom" data-param="PhantomPower01">1-2</button>
+        <button class="led-btn phantom" data-param="PhantomPower23">3-4</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>HPF</label>
+      <select id="hpf-setting" class="dark-select" data-param="InputHPFSetting">
+        <option value="0">40Hz</option>
+        <option value="1">60Hz</option>
+        <option value="2" selected>80Hz</option>
+        <option value="3">100Hz</option>
+        <option value="4">120Hz</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Input 5/6</label>
+      <select id="input56-level" class="dark-select" data-param="Input45Level">
+        <option value="0">+4dBu</option>
+        <option value="1">-10dBV</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Loopback</label>
+      <button class="led-btn" id="loopback-btn" data-param="Loopback">OFF</button>
+    </div>
+  </section>
+
+  <main id="mixer">
+    <div id="channel-strips"></div>
+
+    <div class="channel-strip master" id="master-strip">
+      <div class="strip-label top row-1">MASTER</div>
+
+      <div class="fx-btn-row row-2">
+        <button class="led-btn send-btn" id="revx-send" title="REV-X Send On/Off">SEND</button>
+        <button class="led-btn" id="revx-edit" title="Edit REV-X">e</button>
+      </div>
+
+      <select id="revx-type" class="dark-select row-3">
+        <option value="0">Hall</option>
+        <option value="1">Room</option>
+        <option value="2">Plate</option>
+      </select>
+
+      <div class="knob-row row-4">
+        <div class="knob-wrap">
+          <div class="knob" id="revx-time" data-min="0" data-max="69" data-value="23"><div class="knob-dot"></div></div>
+          <span class="knob-label">TIME</span>
+        </div>
+        <div class="knob-wrap">
+          <div class="knob knob-amber" id="revx-return" data-min="0" data-max="127" data-value="103"><div class="knob-dot"></div></div>
+          <span class="knob-label">RTN</span>
+        </div>
+        <div class="knob-wrap">
+          <div class="knob" id="master-pan" data-min="-16" data-max="16" data-value="0"><div class="knob-dot"></div></div>
+          <span class="knob-label">C</span>
+        </div>
+      </div>
+
+      <button class="led-btn mute-btn row-5" id="master-mute">MUTE</button>
+      <div class="fader-row row-6">
+        <div class="stereo-meter">
+          <div class="meter" id="master-meter-l"><div class="fill"></div></div>
+          <div class="meter" id="master-meter-r"><div class="fill"></div></div>
+        </div>
+        <div class="fader-track">
+          <input type="range" class="fader" id="master-volume" min="0" max="127" value="103" />
+        </div>
+      </div>
+      <span class="db-readout row-7" id="master-volume-db">0.00</span>
+      <div class="strip-label bottom row-8">MASTER</div>
+    </div>
+  </main>
+
+  <div id="fx-modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <span id="fx-modal-title">FX</span>
+        <button class="led-btn" id="fx-modal-close">X</button>
+      </div>
+      <div class="modal-body" id="fx-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
