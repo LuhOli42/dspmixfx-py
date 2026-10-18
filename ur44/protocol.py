@@ -115,6 +115,13 @@ class UR44:
         self._on_change = on_change
         self.state = DeviceState()
         self._lock = threading.Lock()
+        # serializes connect()/disconnect() - python-rtmidi isn't safe against
+        # concurrent open/close on the same port, and two overlapping connect
+        # attempts (e.g. auto-connect racing a manual click) previously
+        # crashed the process outright rather than raising a catchable error.
+        # RLock because connect() calls disconnect() internally when asked to
+        # reconnect while already open.
+        self._conn_lock = threading.RLock()
 
     # -- connection -------------------------------------------------------
 
@@ -141,59 +148,80 @@ class UR44:
             for message in INIT_MESSAGES:
                 out.send(mido.Message("sysex", data=message[1:-1]))
             deadline = time.monotonic() + timeout
+            responded = False
             while time.monotonic() < deadline:
                 if any(True for _ in inp.iter_pending()):
-                    return True
+                    responded = True
+                    break
                 time.sleep(0.05)
-            return False
+            if responded:
+                # We just opened a full session on the device (it may still
+                # be mid-stream on its init dump). Abandoning that abruptly
+                # and immediately opening a second session on connect() right
+                # after was leaving the device in a half-initialized state -
+                # symptoms seen on hardware: faders/pans snapping to garbage
+                # values (e.g. all to +6dB, pan hard right) shortly after
+                # connecting. Drain the rest of the response and send a
+                # proper close before this probe connection goes away.
+                time.sleep(0.3)
+                for _ in inp.iter_pending():
+                    pass
+                out.send(mido.Message("sysex", data=CLOSE_MESSAGE[1:-1]))
+                time.sleep(0.1)
+            return responded
         finally:
             inp.close()
             out.close()
 
     def connect(self, port_name: Optional[str] = None) -> None:
-        if self._out is not None:
-            self.disconnect()
+        with self._conn_lock:
+            if self._out is not None:
+                self.disconnect()
 
-        candidates = [n for n in mido.get_output_names() if "UR44" in n]
-        if not candidates:
-            raise DeviceNotFound("No UR44 MIDI port found")
+            candidates = [n for n in mido.get_output_names() if "UR44" in n]
+            if not candidates:
+                raise DeviceNotFound("No UR44 MIDI port found")
 
-        if port_name:
-            if port_name not in candidates:
-                raise DeviceNotFound(f"Port not found: {port_name}")
-            chosen = port_name
-        elif len(candidates) == 1:
-            chosen = candidates[0]
-        else:
-            chosen = next((c for c in candidates if self._probe_dsp_port(c)), None)
-            if chosen is None:
-                raise DeviceNotFound(
-                    "No UR44 port responded to the init handshake"
-                )
+            if port_name:
+                if port_name not in candidates:
+                    raise DeviceNotFound(f"Port not found: {port_name}")
+                chosen = port_name
+            elif len(candidates) == 1:
+                chosen = candidates[0]
+            else:
+                chosen = next((c for c in candidates if self._probe_dsp_port(c)), None)
+                if chosen is None:
+                    raise DeviceNotFound(
+                        "No UR44 port responded to the init handshake"
+                    )
+                # give the device a clean gap after the probe's session close
+                # before we open a second, real session on the same port
+                time.sleep(0.2)
 
-        self._out = mido.open_output(chosen)
-        self._in = mido.open_input(chosen)
-        self.state.port_name = chosen
+            self._out = mido.open_output(chosen)
+            self._in = mido.open_input(chosen)
+            self.state.port_name = chosen
 
-        self._stop_listener.clear()
-        self._listener_thread = threading.Thread(target=self._listen, daemon=True)
-        self._listener_thread.start()
+            self._stop_listener.clear()
+            self._listener_thread = threading.Thread(target=self._listen, daemon=True)
+            self._listener_thread.start()
 
-        self._send_init_messages()
+            self._send_init_messages()
 
     def disconnect(self) -> None:
-        if self._out is not None:
-            try:
-                self._send(CLOSE_MESSAGE)
-            except Exception:
-                pass
-        self._stop_listener.set()
-        if self._in is not None:
-            self._in.close()
-            self._in = None
-        if self._out is not None:
-            self._out.close()
-            self._out = None
+        with self._conn_lock:
+            if self._out is not None:
+                try:
+                    self._send(CLOSE_MESSAGE)
+                except Exception:
+                    pass
+            self._stop_listener.set()
+            if self._in is not None:
+                self._in.close()
+                self._in = None
+            if self._out is not None:
+                self._out.close()
+                self._out = None
         self.state.connected = False
 
     def _send(self, data: list[int]) -> None:
