@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#24262c"/>
+      <stop offset="1" stop-color="#0c0d10"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <rect x="16" y="16" width="224" height="224" rx="36" fill="none" stroke="#34363d" stroke-width="3"/>
+
+  <!-- three fader tracks -->
+  <g stroke="#3a3d45" stroke-width="10" stroke-linecap="round">
+    <line x1="84"  y1="64" x2="84"  y2="192"/>
+    <line x1="128" y1="64" x2="128" y2="192"/>
+    <line x1="172" y1="64" x2="172" y2="192"/>
+  </g>
+
+  <!-- fader caps -->
+  <circle cx="84"  cy="150" r="15" fill="#ff4fd8"/>
+  <circle cx="128" cy="96"  r="15" fill="#4fd6d0"/>
+  <circle cx="172" cy="126" r="15" fill="#4fd6d0"/>
+
+  <!-- knob -->
+  <circle cx="128" cy="220" r="4" fill="#83868f"/>
+</svg>

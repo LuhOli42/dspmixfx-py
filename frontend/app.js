@@ -1019,7 +1019,21 @@ function setMeterFillEl(meterEl, momentary) {
   $(".fill", meterEl).style.height = `${pct}%`;
 }
 
+// Meter frames can arrive faster than the screen refreshes; keep only the
+// newest one and paint it once per animation frame, and not at all while the
+// window is hidden (tray / minimized).
+let pendingMeters = null;
+
 function updateMeters(values) {
+  if (document.hidden) return;
+  if (pendingMeters === null) requestAnimationFrame(paintMeters);
+  pendingMeters = values;
+}
+
+function paintMeters() {
+  const values = pendingMeters;
+  pendingMeters = null;
+  if (!values) return;
   const names = ["analog1", "analog2", "analog3", "analog4", "analog5", "analog6"];
   names.forEach((name, idx) => {
     if (values[name]) setMeterFill($(`.channel-strip[data-channel="${idx}"]`), values[name].momentary);
@@ -1098,6 +1112,38 @@ function connectEventStream() {
   };
 }
 
+// PipeWire buffer size (quantum) - system-wide, unrelated to the UR44's own
+// params, but this is the control panel the user already has open for this
+// interface. See main.py's /api/latency for the caveat about the device's
+// known USB flakiness getting worse at very small buffers.
+async function initLatencyControl() {
+  const select = $("#latency-select");
+  let current;
+  try {
+    current = await api("/api/latency");
+  } catch (err) {
+    select.disabled = true;
+    select.title = "pw-metadata indisponível";
+    return;
+  }
+
+  select.innerHTML =
+    `<option value="0">Auto</option>` +
+    current.options
+      .map((q) => `<option value="${q}">${q} (${((q / current.sampleRate) * 1000).toFixed(1)}ms)</option>`)
+      .join("");
+  select.value = current.forced ? String(current.quantum) : "0";
+
+  select.addEventListener("change", async () => {
+    const quantum = Number(select.value);
+    try {
+      await api("/api/latency", { method: "POST", body: JSON.stringify({ quantum }) });
+    } catch (err) {
+      alert(`Latência: ${err.message}`);
+    }
+  });
+}
+
 async function init() {
   const status = await api("/api/status");
   renderChannelStrips(status.inputChannels);
@@ -1150,6 +1196,8 @@ async function init() {
     setToggle(loopbackBtn, on);
     loopbackBtn.textContent = on ? "ON" : "OFF";
   });
+
+  initLatencyControl();
 
   const phones2Btn = $("#phones2-btn");
   phones2Btn.addEventListener("click", () => {
